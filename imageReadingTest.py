@@ -125,4 +125,49 @@ def decodeImage(imagePath):
     return decodeBinary(readColors(img, lenAll, lenAll + messageLen))
 
 
+def splitIntoArray(binary, sections, snippit):
+    result = []
+    
+    charPerSection = int(len(binary)/sections)
+    charPerSection += -charPerSection % snippit
+
+    for i in range(sections):
+        result.append(binary[:charPerSection])
+        binary = binary[charPerSection:]
+
+    return result
+
+def txtToImage(textFilePath, imagePath):
+    textFile = open(textFilePath, encoding="utf8")
+    content = textFile.read()
+
+    img = iio.imread(imagePath)
+    lenAll, maxChr = lengthAllocation(img)
+
+    if len(content) > maxChr:
+        print("message too long for this image size,\nplease choose smaller image or shorten your message")
+        return
+
+    # before the message, some data is encoded to tell the computer how long the message is
+    # space for this is allocated relative to image resolution to ensure we can always decode it
+    lengthText = format(len(content), '0'+str(lenAll * 4)+'b')
+    binary = lengthText + encodeBinary(content)
+    textFile.close()
+
+    binary = splitIntoArray(binary, 100, 4)
+
+    for y in binary:
+        l = 0
+        # encode data into image 4 bits at a time
+        for x in range(int(len(y) / 4)):
+            # convert the linear x to 3 indices for each unique position
+            i, j, k = arrayToThreeIndices(img, int(len(binary[0]) / 4) * l + x)
+
+            # encode the 4 bits into the color value of the current pixel
+            section = y[x*4 : x*4 +4]
+            img[i][j][k] = encodeColor(img[i][j][k], section)
+        l += 1
+    iio.imwrite(imagePath, img)
+    
+
 
